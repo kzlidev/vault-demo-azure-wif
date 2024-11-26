@@ -1,0 +1,24 @@
+#!/bin/bash
+
+export VAULT_ADDR=${VAULT_ADDR}
+export VAULT_TOKEN=${VAULT_TOKEN}
+export AZURE_TENANT_ID=${AZURE_TENANT_ID}
+export AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+export AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+export AZURE_JWT="$(curl -s 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F' -H Metadata:true | jq -r '.access_token')"
+export ARM_SUBSCRIPTION_ID=$(curl -s -H Metadata:true "http://169.254.169.254/metadata/instance?api-version=2017-08-01" | jq -r '.compute | .subscriptionId')
+export RESOURCE_GROUP_NAME=$(curl -s -H Metadata:true "http://169.254.169.254/metadata/instance?api-version=2017-08-01" | jq -r '.compute | .resourceGroupName')
+export VM_NAME=$(curl -s -H Metadata:true "http://169.254.169.254/metadata/instance?api-version=2017-08-01" | jq -r '.compute | .name')
+
+vault auth enable azure
+
+vault write auth/azure/config \
+    tenant_id=$AZURE_TENANT_ID \
+    resource=https://management.azure.com/ \
+    client_id=$AZURE_CLIENT_ID \
+    client_secret=$AZURE_CLIENT_SECRET
+
+vault write auth/azure/role/dev-role \
+    policies="default" \
+    bound_subscription_ids=$ARM_SUBSCRIPTION_ID \
+    bound_resource_groups=$RESOURCE_GROUP_NAME
